@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EME Dancers - Real-Time WebRTC Stage System</title>
+    <title>EME Dancers - 100+ TV Scale Event Control</title>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-    <!-- WebRTC PeerJS Engine (Zero-Config Direct Live Bridge) -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- MQTT WebSocket Engine (Handles 100+ Displays Simultaneously) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         :root {
             --bg: #090a0f;
@@ -115,16 +115,11 @@
             gap: 8px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-            padding: 6px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-        .status-badge.connected {
             background: rgba(16, 185, 129, 0.1);
             color: var(--accent-green);
-            border-color: rgba(16, 185, 129, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
         .control-section {
@@ -239,7 +234,7 @@
     <div id="landing-view">
         <div class="hero-card">
             <h1>EME Dancers</h1>
-            <p>Live WebRTC Direct Control System</p>
+            <p>100+ TV Broadcast Network</p>
             <div class="portal-btn-group">
                 <button class="btn" onclick="switchView('control')">Open iPad Control Panel</button>
                 <button class="btn btn-secondary" onclick="switchView('tv')">Launch TV Kiosk Mode</button>
@@ -251,25 +246,17 @@
     <div id="control-view">
         <div class="control-header">
             <h2>🎛️ EME Production Controller</h2>
-            <div class="status-badge" id="net-status">DISCONNECTED</div>
-        </div>
-
-        <div class="control-section" style="border-color: var(--accent-pink);">
-            <h3>Connect to TV Screen</h3>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" id="target-room-id" placeholder="Enter TV Room ID (e.g. eme-room-1234)" style="margin:0;">
-                <button class="btn" onclick="connectToTV()" style="padding: 0 20px; white-space: nowrap;">Connect Live</button>
-            </div>
+            <div class="status-badge" id="net-status">CONNECTING...</div>
         </div>
 
         <div class="control-section">
             <h3>Lighting Controls</h3>
             <div class="lighting-grid">
-                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'normal'})">Normal Party</button>
-                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'upbeat'})">Upbeat Party RGB</button>
-                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'purple'})">Neon Purple</button>
-                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'orange'})">Halloween Orange</button>
-                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'strobe'})" style="grid-column: span 2; border-color: var(--accent-red);">Rapid Strobe FX</button>
+                <button class="lighting-btn" onclick="publishMessage({type: 'lighting', mode: 'normal'})">Normal Party</button>
+                <button class="lighting-btn" onclick="publishMessage({type: 'lighting', mode: 'upbeat'})">Upbeat Party RGB</button>
+                <button class="lighting-btn" onclick="publishMessage({type: 'lighting', mode: 'purple'})">Neon Purple</button>
+                <button class="lighting-btn" onclick="publishMessage({type: 'lighting', mode: 'orange'})">Halloween Orange</button>
+                <button class="lighting-btn" onclick="publishMessage({type: 'lighting', mode: 'strobe'})" style="grid-column: span 2; border-color: var(--accent-red);">Rapid Strobe FX</button>
             </div>
         </div>
 
@@ -279,12 +266,12 @@
             <input type="text" id="ctrl-header" placeholder="FIREWORKS SHOW STARTING!">
             <label style="margin-top: 10px; display:block;">Message</label>
             <textarea id="ctrl-text" rows="3" placeholder="Please gather in the garden area..."></textarea>
-            <button class="btn btn-transmit" onclick="transmitAnnouncement()">🚀 Transmit Announcement</button>
+            <button class="btn btn-transmit" onclick="transmitAnnouncement()">🚀 Transmit to All 100+ TVs</button>
         </div>
 
         <div class="control-section" style="border-color: rgba(239, 68, 68, 0.4);">
             <h3 style="color: var(--accent-red);">Life Safety System</h3>
-            <button class="btn btn-vad-emergency" onclick="broadcastState({type: 'vad_alarm'})">🚨 TRIGGER BS VAD EVAC ALARM</button>
+            <button class="btn btn-vad-emergency" onclick="publishMessage({type: 'vad_alarm'})">🚨 TRIGGER BS VAD EVAC ALARM ON ALL TVs</button>
         </div>
 
         <button class="btn btn-secondary" style="width: 100%;" onclick="switchView('landing')">Back to Home</button>
@@ -297,7 +284,7 @@
             <p id="tv-display-text">Welcome to the Party!</p>
         </div>
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: #10b981;">
-            TV ROOM ID: <span id="tv-room-id" style="font-weight: 800; color: white;">GENERATING...</span>
+            NETWORK STATUS: <span id="tv-status" style="color: white;">CONNECTING BROADCAST...</span>
         </div>
     </div>
 
@@ -308,8 +295,22 @@
     </div>
 
     <script>
-        let peer = null;
-        let activeConnection = null;
+        // Shared Broadcaster Topic Channel
+        const TOPIC = "eme_dancers_global_event_channel_99";
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt'); // Enterprise-grade high-capacity public broker
+
+        client.on('connect', () => {
+            document.getElementById('net-status').innerText = "LIVE (100+ TV READY)";
+            document.getElementById('tv-status').innerText = "LIVE BROADCAST ACTIVE";
+            client.subscribe(TOPIC);
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                handleIncomingData(data);
+            } catch(e) {}
+        });
 
         function switchView(viewName) {
             document.getElementById('landing-view').style.display = 'none';
@@ -317,62 +318,18 @@
             document.getElementById('tv-screen').style.display = 'none';
 
             if (viewName === 'landing') document.getElementById('landing-view').style.display = 'flex';
-            if (viewName === 'control') {
-                document.getElementById('control-view').style.display = 'block';
-                initPeerController();
-            }
-            if (viewName === 'tv') {
-                document.getElementById('tv-screen').style.display = 'flex';
-                initPeerTV();
-            }
+            if (viewName === 'control') document.getElementById('control-view').style.display = 'block';
+            if (viewName === 'tv') document.getElementById('tv-screen').style.display = 'flex';
         }
 
-        // --- TV MODE (Receiver) ---
-        function initPeerTV() {
-            const randomID = 'eme-room-' + Math.floor(1000 + Math.random() * 9000);
-            peer = new Peer(randomID);
-
-            peer.on('open', (id) => {
-                document.getElementById('tv-room-id').innerText = id;
-            });
-
-            peer.on('connection', (conn) => {
-                conn.on('data', (data) => {
-                    handleIncomingData(data);
-                });
-            });
-        }
-
-        // --- IPAD CONTROL MODE (Sender) ---
-        function initPeerController() {
-            if(!peer) peer = new Peer();
-        }
-
-        function connectToTV() {
-            const targetID = document.getElementById('target-room-id').value.trim();
-            if(!targetID) return alert('Please enter TV Room ID!');
-
-            activeConnection = peer.connect(targetID);
-            
-            activeConnection.on('open', () => {
-                const statusBadge = document.getElementById('net-status');
-                statusBadge.innerText = "LIVE LINK CONNECTED";
-                statusBadge.classList.add('connected');
-            });
-        }
-
-        function broadcastState(dataObject) {
-            if(activeConnection && activeConnection.open) {
-                activeConnection.send(dataObject);
-            } else {
-                alert("Please connect to a TV Room ID first!");
-            }
+        function publishMessage(dataObject) {
+            client.publish(TOPIC, JSON.stringify(dataObject));
         }
 
         function transmitAnnouncement() {
             const h = document.getElementById('ctrl-header').value;
             const t = document.getElementById('ctrl-text').value;
-            broadcastState({ type: 'announcement', header: h, text: t });
+            publishMessage({ type: 'announcement', header: h, text: t });
         }
 
         function handleIncomingData(data) {
