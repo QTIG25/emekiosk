@@ -3,279 +3,565 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EME Dancers - Party & VAD Control System</title>
+    <title>EME Dancers - Real-Time Event & VAD System</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <!-- Real-time Cross-Device Cloud Relay Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
         :root {
-            --bg-color: #0d1117;
-            --card-bg: #161b22;
-            --text-color: #f0f6fc;
-            --accent: #ff007f;
-            --neon-purple: #9d4edd;
-            --halloween-orange: #ff7700;
+            --bg: #090a0f;
+            --surface: #131620;
+            --surface-glass: rgba(19, 22, 32, 0.85);
+            --border: #212635;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-pink: #ff007f;
+            --accent-purple: #9d4edd;
+            --accent-orange: #ff7700;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* LANDING PAGE HUB */
+        #landing-view {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 20px;
+            background: radial-gradient(circle at center, #1b122c 0%, var(--bg) 70%);
         }
 
-        .container {
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            max-width: 600px;
+        .hero-card {
+            background: var(--surface-glass);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
             width: 100%;
             text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
         }
 
-        h1 { margin-top: 0; color: var(--accent); }
-        p { color: #8b949e; }
+        .hero-card h1 {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff, var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-        .btn-group {
+        .hero-card p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .portal-btn-group {
             display: flex;
             flex-direction: column;
             gap: 15px;
-            margin-top: 25px;
         }
 
-        button {
-            background-color: #238636;
+        .btn {
+            background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
             color: white;
             border: none;
-            padding: 15px 20px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 8px;
+            padding: 16px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 0, 127, 0.3);
         }
 
-        button:hover { opacity: 0.9; }
-        .btn-tv { background-color: #1f6feb; }
-        .btn-control { background-color: #8957e5; }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 0, 127, 0.5);
+        }
 
-        /* TV Display Mode Styles */
+        .btn-secondary {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: none;
+        }
+        .btn-secondary:hover {
+            background: #1c2130;
+            box-shadow: none;
+        }
+
+        /* CONTROL PAGE (iPad) */
+        #control-view {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 30px;
+            background: var(--surface-glass);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            display: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .control-header h2 { margin: 0; font-size: 1.6rem; }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulseDot 2s infinite;
+        }
+
+        @keyframes pulseDot {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+            background: rgba(9, 10, 15, 0.4);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .control-section h3 {
+            margin-top: 0;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
+        .lighting-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .lighting-btn {
+            padding: 14px;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .lighting-btn:hover { border-color: var(--text-muted); }
+        .lighting-btn.active { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.4); }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-pink);
+        }
+
+        .btn-transmit {
+            width: 100%;
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            margin-top: 5px;
+        }
+
+        .btn-vad-emergency {
+            width: 100%;
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            font-size: 1.1rem;
+            padding: 18px;
+        }
+
+        /* TV KIOSK SCREEN */
         #tv-screen {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: black;
-            display: flex;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: var(--bg);
+            display: none;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            justify-content: space-between;
+            padding: 60px;
+            z-index: 9999;
             overflow: hidden;
-            transition: background 0.5s ease;
+            transition: background 0.4s ease;
         }
 
-        #tv-screen h1 { font-size: 5vw; margin: 0; text-transform: uppercase; }
-        #tv-screen p { font-size: 3vw; margin: 20px 0 0 0; color: white; }
+        .theme-normal { background: #090a0f !important; }
+        .theme-upbeat { animation: upbeatFlow 6s infinite alternate; }
+        .theme-purple { background: linear-gradient(135deg, #240046, #3c096c) !important; }
+        .theme-orange { background: linear-gradient(135deg, #381300, #7b2a00) !important; }
+        .theme-strobe { animation: strobeFlash 0.15s infinite; }
 
-        /* Lighting FX Classes */
-        .fx-normal { background: #111 !important; }
-        .fx-upbeat { animation: upbeatRGB 2s infinite; }
-        .fx-purple { background: var(--neon-purple) !important; }
-        .fx-orange { background: var(--halloween-orange) !important; }
-        .fx-strobe { animation: rapidStrobe 0.15s infinite; }
-
-        @keyframes upbeatRGB {
-            0% { background: #ff0055; }
-            33% { background: #00ffff; }
-            66% { background: #7b00ff; }
-            100% { background: #ff0055; }
+        @keyframes upbeatFlow {
+            0% { background: #11002c; }
+            50% { background: #2c0022; }
+            100% { background: #00222c; }
         }
 
-        @keyframes rapidStrobe {
+        @keyframes strobeFlash {
             0% { background: #ffffff; color: black; }
             50% { background: #000000; color: white; }
             100% { background: #ffffff; color: black; }
         }
 
-        /* Control Panel Form Styles */
-        .control-panel {
-            text-align: left;
+        .tv-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tv-brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+        }
+        .tv-fireworks-indicator {
+            font-size: 1.2rem;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 16px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
-        input, textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0 20px 0;
-            background: #0d1117;
-            border: 1px: #30363d;
-            border-radius: 6px;
+        .tv-content-box {
+            text-align: center;
+            margin: auto;
+            max-width: 1200px;
+        }
+        #tv-display-header {
+            font-size: 5vw;
+            font-weight: 800;
+            margin: 0 0 20px 0;
+            text-transform: uppercase;
+            line-height: 1.1;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        #tv-display-text {
+            font-size: 2.5vw;
+            font-weight: 300;
+            color: #d1d5db;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .tv-footer-bar {
+            display: flex;
+            justify-content: space-between;
+            color: rgba(255,255,255,0.4);
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* EMERGENCY VAD OVERLAY */
+        #vad-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: red;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
             color: white;
-            font-size: 16px;
-            box-sizing: border-box;
+            text-align: center;
+            animation: vadFlashBg 0.3s infinite alternate;
         }
 
-        .presets {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
+        @keyframes vadFlashBg {
+            0% { background: #dc2626; }
+            100% { background: #000000; }
         }
 
-        .presets button {
-            font-size: 14px;
-            padding: 10px;
+        #vad-overlay h1 {
+            font-size: 7vw;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        #vad-overlay p {
+            font-size: 3vw;
+            margin: 20px 0 0 0;
+            font-weight: 600;
         }
 
-        .vad-btn {
-            background-color: #da3633;
-            margin-top: 10px;
+        .exit-kiosk {
+            position: absolute;
+            top: 20px; right: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            z-index: 10000;
         }
     </style>
 </head>
 <body>
 
-    <!-- Home Hub View -->
-    <div id="home-view" class="container">
-        <h1>EME Dancers Event Hub</h1>
-        <p>Select which view you want to open on this device:</p>
-        <div class="btn-group">
-            <button class="btn-control" onclick="openView('control')">iPad Control Page</button>
-            <button class="btn-tv" onclick="openView('tv')">TV Kiosk Mode</button>
+    <!-- 1. LANDING PAGE HUB -->
+    <div id="landing-view">
+        <div class="hero-card">
+            <h1>EME Dancers</h1>
+            <p>Party & TV Signage Live Control Hub</p>
+            <div class="portal-btn-group">
+                <button class="btn" onclick="switchView('control')">Open iPad Control Panel</button>
+                <button class="btn btn-secondary" onclick="switchView('tv')">Launch TV Kiosk Mode</button>
+            </div>
         </div>
     </div>
 
-    <!-- Control Page View -->
-    <div id="control-view" class="container control-panel" style="display: none;">
-        <h1>🎛️ EME Controller</h1>
+    <!-- 2. CONTROL PAGE (iPad) -->
+    <div id="control-view">
+        <div class="control-header">
+            <div>
+                <h2>🎛️ EME Production Controller</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Real-time Network Synchronization</span>
+            </div>
+            <div class="status-badge" id="net-status">
+                <div class="status-dot"></div>
+                CONNECTING...
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Lighting & Atmosphere Controls</h3>
+            <div class="lighting-grid">
+                <button class="lighting-btn active" id="l-normal" onclick="setLighting('normal')">Normal Party</button>
+                <button class="lighting-btn" id="l-upbeat" onclick="setLighting('upbeat')">Upbeat Party RGB</button>
+                <button class="lighting-btn" id="l-purple" onclick="setLighting('purple')">Neon Purple</button>
+                <button class="lighting-btn" id="l-orange" onclick="setLighting('orange')">Halloween Orange</button>
+                <button class="lighting-btn" id="l-strobe" onclick="setLighting('strobe')" style="grid-column: span 2; border-color: var(--accent-red);">Rapid Strobe FX</button>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <h3>Live Party Announcement</h3>
+            <div class="form-group">
+                <label>Announcement Header Title</label>
+                <input type="text" id="ctrl-header" placeholder="e.g., FIREWORKS SHOW STARTING OUTSIDE!">
+            </div>
+            <div class="form-group">
+                <label>Announcement Body Text</label>
+                <textarea id="ctrl-text" rows="3" placeholder="Type message here... (Type freely, changes broadcast when button is pressed)"></textarea>
+            </div>
+            <button class="btn btn-transmit" onclick="transmitAnnouncement()">🚀 Transmit Announcement to TVs</button>
+        </div>
+
+        <div class="control-section" style="border-color: rgba(239, 68, 68, 0.4);">
+            <h3 style="color: var(--accent-red);">Life Safety System</h3>
+            <button class="btn btn-vad-emergency" onclick="triggerEmergencyVAD()">🚨 TRIGGER BS COMPLIANT VAD EVAC ALARM</button>
+        </div>
+
+        <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="switchView('landing')">Back to Home Menu</button>
+    </div>
+
+    <!-- 3. TV KIOSK PAGE -->
+    <div id="tv-screen" class="theme-normal">
+        <button class="exit-kiosk" onclick="switchView('landing')">Exit Kiosk</button>
+        <div class="tv-top-bar">
+            <div class="tv-brand">EME DANCERS • LIVE KIOSK</div>
+            <div class="tv-fireworks-indicator">🎆 FIREWORKS EVENT MODE</div>
+        </div>
         
-        <label><strong>Lighting FX Mode:</strong></label>
-        <div class="presets">
-            <button onclick="setLighting('normal')">Normal</button>
-            <button onclick="setLighting('upbeat')">Upbeat RGB</button>
-            <button onclick="setLighting('purple')">Neon Purple</button>
-            <button onclick="setLighting('orange')">Halloween Orange</button>
-            <button onclick="setLighting('strobe')" style="grid-column: span 2; background: #b31d28;">Rapid Strobe</button>
+        <div class="tv-content-box">
+            <h1 id="tv-display-header">WELCOME TO EME DANCERS</h1>
+            <p id="tv-display-text">Get ready for an incredible party and fireworks display!</p>
         </div>
 
-        <label for="input-header">Announcement Header:</label>
-        <input type="text" id="input-header" placeholder="e.g., FIREWORKS STARTING!" oninput="syncData()">
-
-        <label for="input-text">Announcement Body Text:</label>
-        <textarea id="input-text" rows="3" placeholder="Type message here..." oninput="syncData()"></textarea>
-
-        <button class="vad-btn" onclick="triggerVAD()">🚨 Trigger BS VAD Evac Sounder</button>
-        <br><br>
-        <button style="background: #30363d;" onclick="openView('home')">Back to Home</button>
+        <div class="tv-footer-bar">
+            <span id="tv-net-status">NETWORK STATUS: CONNECTING</span>
+            <span id="tv-clock">00:00:00</span>
+        </div>
     </div>
 
-    <!-- TV Kiosk View (Hidden by default unless selected) -->
-    <div id="tv-screen" style="display: none;" class="fx-normal">
-        <h1 id="tv-header">EME DANCERS</h1>
-        <p id="tv-text">Welcome to the Party!</p>
-        <div style="position: absolute; bottom: 20px; font-size: 12px; color: rgba(255,255,255,0.4);">TV Kiosk Mode — Press ESC or click to exit</div>
+    <!-- 4. EMERGENCY VAD OVERLAY -->
+    <div id="vad-overlay">
+        <h1>🚨 EMERGENCY EVACUATION 🚨</h1>
+        <p>EVACUATE THE BUILDING IMMEDIATELY VIA NEAREST EXIT</p>
     </div>
 
     <script>
-        // Simple View Controller
-        function openView(view) {
-            document.getElementById('home-view').style.display = 'none';
+        // Global Public MQTT WebSocket Relay Configuration (Unique channel for EME Dancers)
+        const MQTT_TOPIC = "emedancers/party/control/v1";
+        const client = mqtt.connect("wss://broker.hivemq.com:8000/mqtt");
+
+        client.on('connect', () => {
+            console.log("Connected to Real-time Network!");
+            document.getElementById('net-status').innerHTML = '<div class="status-dot"></div> SYNC ONLINE';
+            document.getElementById('tv-net-status').innerText = 'NETWORK STATUS: LIVE SYNC ONLINE';
+            client.subscribe(MQTT_TOPIC);
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const payload = JSON.parse(message.toString());
+                handleIncomingData(payload);
+            } catch(e) {}
+        });
+
+        function switchView(viewName) {
+            document.getElementById('landing-view').style.display = 'none';
             document.getElementById('control-view').style.display = 'none';
             document.getElementById('tv-screen').style.display = 'none';
 
-            if (view === 'home') {
-                document.getElementById('home-view').style.display = 'block';
-            } else if (view === 'control') {
+            if (viewName === 'landing') {
+                document.getElementById('landing-view').style.display = 'flex';
+            } else if (viewName === 'control') {
                 document.getElementById('control-view').style.display = 'block';
-            } else if (view === 'tv') {
+            } else if (viewName === 'tv') {
                 document.getElementById('tv-screen').style.display = 'flex';
+                try { document.documentElement.requestFullscreen?.(); } catch(e){}
             }
         }
 
-        // Real-time Storage Sync (Updates across tabs/devices instantly without clearing focus)
-        function syncData() {
-            const header = document.getElementById('input-header').value;
-            const text = document.getElementById('input-text').value;
-            localStorage.setItem('eme_header', header);
-            localStorage.setItem('eme_text', text);
-        }
-
+        // Lighting Controls
         function setLighting(mode) {
-            localStorage.setItem('eme_lighting', mode);
+            document.querySelectorAll('.lighting-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('l-' + mode).classList.add('active');
+            
+            const payload = { type: 'lighting', mode: mode };
+            client.publish(MQTT_TOPIC, JSON.stringify(payload));
         }
 
-        // British Standard compliant VAD sounder simulation (Dual-frequency sweep sound)
-        function triggerVAD() {
-            localStorage.setItem('eme_vad', Date.now()); // Broadcast trigger to TVs
-            playVADAudio();
+        // Transmit Text Controls (Only sends on click)
+        function transmitAnnouncement() {
+            const header = document.getElementById('ctrl-header').value;
+            const text = document.getElementById('ctrl-text').value;
+
+            const payload = { type: 'announcement', header: header, text: text };
+            client.publish(MQTT_TOPIC, JSON.stringify(payload));
+            alert('Announcement Sent to TVs!');
         }
 
-        function playVADAudio() {
+        // Emergency VAD Trigger
+        function triggerEmergencyVAD() {
+            const payload = { type: 'vad_alarm' };
+            client.publish(MQTT_TOPIC, JSON.stringify(payload));
+        }
+
+        // Audio Visual VAD Alarm Handler
+        function executeVADAlarmSequence() {
+            const overlay = document.getElementById('vad-overlay');
+            overlay.style.display = 'flex';
+
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                osc.type = 'sawtooth';
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
+                if(audioCtx.state === 'suspended') { audioCtx.resume(); }
 
-                // BS 5839 compliant frequency sweep simulation (800Hz to 970Hz)
-                let time = audioCtx.currentTime;
-                for(let i = 0; i < 10; i++) {
-                    osc.frequency.setValueAtTime(800, time + (i * 0.5));
-                    osc.frequency.linearRampToValueAtTime(970, time + (i * 0.5) + 0.25);
+                let startTime = audioCtx.currentTime;
+                // Play 10-second British Standard compliant sweep tone (800Hz to 970Hz)
+                for (let cycle = 0; cycle < 20; cycle++) {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    
+                    let cycleStart = startTime + (cycle * 0.5);
+                    osc.frequency.setValueAtTime(800, cycleStart);
+                    osc.frequency.linearRampToValueAtTime(970, cycleStart + 0.4);
+
+                    gain.gain.setValueAtTime(0.4, cycleStart);
+                    gain.gain.linearRampToValueAtTime(0.01, cycleStart + 0.48);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(cycleStart);
+                    osc.stop(cycleStart + 0.5);
                 }
-                
-                osc.start();
-                osc.stop(time + 5.0);
             } catch(e) {
-                console.log("Audio needs user interaction first");
+                console.log("Audio requires initial touch on screen");
+            }
+
+            // Hide after 10 seconds
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 10000);
+        }
+
+        // Process incoming messages across networks
+        function handleIncomingData(data) {
+            if (data.type === 'lighting') {
+                const tv = document.getElementById('tv-screen');
+                tv.className = 'theme-' + data.mode;
+            }
+            else if (data.type === 'announcement') {
+                if(data.header) document.getElementById('tv-display-header').innerText = data.header;
+                if(data.text) document.getElementById('tv-display-text').innerText = data.text;
+            }
+            else if (data.type === 'vad_alarm') {
+                executeVADAlarmSequence();
             }
         }
 
-        // Real-time listener for TV updates
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'eme_header') {
-                document.getElementById('tv-header').innerText = e.newValue || 'EME DANCERS';
-            }
-            if (e.key === 'eme_text') {
-                document.getElementById('tv-text').innerText = e.newValue || '';
-            }
-            if (e.key === 'eme_lighting') {
-                const tv = document.getElementById('tv-screen');
-                tv.className = '';
-                if (e.newValue === 'normal') tv.classList.add('fx-normal');
-                if (e.newValue === 'upbeat') tv.classList.add('fx-upbeat');
-                if (e.newValue === 'purple') tv.classList.add('fx-purple');
-                if (e.newValue === 'orange') tv.classList.add('fx-orange');
-                if (e.newValue === 'strobe') tv.classList.add('fx-strobe');
-            }
-            if (e.key === 'eme_vad') {
-                playVADAudio();
-            }
-        });
-
-        // Load initial state if opened directly on TV
-        window.onload = () => {
-            if (localStorage.getItem('eme_header')) {
-                document.getElementById('tv-header').innerText = localStorage.getItem('eme_header');
-            }
-            if (localStorage.getItem('eme_text')) {
-                document.getElementById('tv-text').innerText = localStorage.getItem('eme_text');
-            }
-        };
-
-        // Click TV screen to go back home if needed
-        document.getElementById('tv-screen').addEventListener('click', () => {
-            // Uncomment if you want clicking the TV to exit kiosk mode
-            // openView('home');
-        });
+        // Live Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('tv-clock').innerText = now.toLocaleTimeString();
+        }, 1000);
     </script>
 </body>
 </html>
