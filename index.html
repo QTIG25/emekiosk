@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EME Dancers - Real-Time Event & VAD System</title>
+    <title>EME Dancers - Real-Time WebRTC Stage System</title>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-    <!-- Real-time Cross-Device Cloud Relay Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <!-- WebRTC PeerJS Engine (Zero-Config Direct Live Bridge) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
             --bg: #090a0f;
@@ -18,7 +18,6 @@
             --text-muted: #9ca3af;
             --accent-pink: #ff007f;
             --accent-purple: #9d4edd;
-            --accent-orange: #ff7700;
             --accent-red: #ef4444;
             --accent-green: #10b981;
         }
@@ -35,7 +34,7 @@
             overflow-x: hidden;
         }
 
-        /* LANDING PAGE HUB */
+        /* 1. LANDING PAGE */
         #landing-view {
             display: flex;
             flex-direction: column;
@@ -66,15 +65,11 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .hero-card p {
-            color: var(--text-muted);
-            margin-bottom: 30px;
-        }
-
         .portal-btn-group {
             display: flex;
             flex-direction: column;
             gap: 15px;
+            margin-top: 25px;
         }
 
         .btn {
@@ -87,35 +82,22 @@
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 15px rgba(255, 0, 127, 0.3);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 0, 127, 0.5);
         }
 
         .btn-secondary {
             background: var(--surface);
             border: 1px solid var(--border);
-            box-shadow: none;
-        }
-        .btn-secondary:hover {
-            background: #1c2130;
-            box-shadow: none;
         }
 
-        /* CONTROL PAGE (iPad) */
+        /* 2. CONTROL PANEL (iPad) */
         #control-view {
             max-width: 900px;
             margin: 40px auto;
             padding: 30px;
             background: var(--surface-glass);
-            backdrop-filter: blur(16px);
             border: 1px solid var(--border);
             border-radius: 20px;
             display: none;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
 
         .control-header {
@@ -127,33 +109,22 @@
             margin-bottom: 25px;
         }
 
-        .control-header h2 { margin: 0; font-size: 1.6rem; }
-
         .status-badge {
             display: flex;
             align-items: center;
             gap: 8px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--accent-green);
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
             padding: 6px 14px;
             border-radius: 20px;
-            border: 1px solid rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent-green);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--accent-green);
-            animation: pulseDot 2s infinite;
-        }
-
-        @keyframes pulseDot {
-            0% { opacity: 1; }
-            50% { opacity: 0.3; }
-            100% { opacity: 1; }
+        .status-badge.connected {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border-color: rgba(16, 185, 129, 0.2);
         }
 
         .control-section {
@@ -162,15 +133,6 @@
             border: 1px solid var(--border);
             padding: 20px;
             border-radius: 12px;
-        }
-
-        .control-section h3 {
-            margin-top: 0;
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 15px;
         }
 
         .lighting-grid {
@@ -188,18 +150,8 @@
             color: white;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.2s;
         }
-        .lighting-btn:hover { border-color: var(--text-muted); }
-        .lighting-btn.active { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.4); }
 
-        .form-group { margin-bottom: 15px; }
-        .form-group label {
-            display: block;
-            font-size: 0.9rem;
-            margin-bottom: 6px;
-            color: var(--text-muted);
-        }
         input[type="text"], textarea {
             width: 100%;
             padding: 14px;
@@ -209,28 +161,23 @@
             color: white;
             font-family: inherit;
             font-size: 1rem;
-        }
-        input[type="text"]:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent-pink);
+            margin-top: 6px;
         }
 
         .btn-transmit {
             width: 100%;
             background: linear-gradient(135deg, #10b981, #059669);
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-            margin-top: 5px;
+            margin-top: 15px;
         }
 
         .btn-vad-emergency {
             width: 100%;
             background: linear-gradient(135deg, #ef4444, #b91c1c);
-            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
             font-size: 1.1rem;
             padding: 18px;
         }
 
-        /* TV KIOSK SCREEN */
+        /* 3. TV KIOSK SCREEN */
         #tv-screen {
             position: fixed;
             top: 0; left: 0;
@@ -241,8 +188,6 @@
             justify-content: space-between;
             padding: 60px;
             z-index: 9999;
-            overflow: hidden;
-            transition: background 0.4s ease;
         }
 
         .theme-normal { background: #090a0f !important; }
@@ -263,57 +208,11 @@
             100% { background: #ffffff; color: black; }
         }
 
-        .tv-top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .tv-brand {
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: 2px;
-            color: rgba(255,255,255,0.7);
-            text-transform: uppercase;
-        }
-        .tv-fireworks-indicator {
-            font-size: 1.2rem;
-            background: rgba(255,255,255,0.1);
-            padding: 8px 16px;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
+        .tv-content-box { text-align: center; margin: auto; }
+        #tv-display-header { font-size: 5vw; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; }
+        #tv-display-text { font-size: 2.5vw; color: #d1d5db; }
 
-        .tv-content-box {
-            text-align: center;
-            margin: auto;
-            max-width: 1200px;
-        }
-        #tv-display-header {
-            font-size: 5vw;
-            font-weight: 800;
-            margin: 0 0 20px 0;
-            text-transform: uppercase;
-            line-height: 1.1;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        #tv-display-text {
-            font-size: 2.5vw;
-            font-weight: 300;
-            color: #d1d5db;
-            margin: 0;
-            line-height: 1.4;
-        }
-
-        .tv-footer-bar {
-            display: flex;
-            justify-content: space-between;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.9rem;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* EMERGENCY VAD OVERLAY */
+        /* VAD ALARM OVERLAY */
         #vad-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -325,48 +224,22 @@
             z-index: 99999;
             color: white;
             text-align: center;
-            animation: vadFlashBg 0.3s infinite alternate;
+            animation: vadFlash 0.3s infinite alternate;
         }
 
-        @keyframes vadFlashBg {
+        @keyframes vadFlash {
             0% { background: #dc2626; }
             100% { background: #000000; }
-        }
-
-        #vad-overlay h1 {
-            font-size: 7vw;
-            font-weight: 900;
-            margin: 0;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        }
-        #vad-overlay p {
-            font-size: 3vw;
-            margin: 20px 0 0 0;
-            font-weight: 600;
-        }
-
-        .exit-kiosk {
-            position: absolute;
-            top: 20px; right: 20px;
-            background: rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white;
-            padding: 8px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            z-index: 10000;
         }
     </style>
 </head>
 <body>
 
-    <!-- 1. LANDING PAGE HUB -->
+    <!-- 1. LANDING PAGE -->
     <div id="landing-view">
         <div class="hero-card">
             <h1>EME Dancers</h1>
-            <p>Party & TV Signage Live Control Hub</p>
+            <p>Live WebRTC Direct Control System</p>
             <div class="portal-btn-group">
                 <button class="btn" onclick="switchView('control')">Open iPad Control Panel</button>
                 <button class="btn btn-secondary" onclick="switchView('tv')">Launch TV Kiosk Mode</button>
@@ -377,191 +250,169 @@
     <!-- 2. CONTROL PAGE (iPad) -->
     <div id="control-view">
         <div class="control-header">
-            <div>
-                <h2>🎛️ EME Production Controller</h2>
-                <span style="font-size: 0.85rem; color: var(--text-muted);">Real-time Network Synchronization</span>
-            </div>
-            <div class="status-badge" id="net-status">
-                <div class="status-dot"></div>
-                CONNECTING...
+            <h2>🎛️ EME Production Controller</h2>
+            <div class="status-badge" id="net-status">DISCONNECTED</div>
+        </div>
+
+        <div class="control-section" style="border-color: var(--accent-pink);">
+            <h3>Connect to TV Screen</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="target-room-id" placeholder="Enter TV Room ID (e.g. eme-room-1234)" style="margin:0;">
+                <button class="btn" onclick="connectToTV()" style="padding: 0 20px; white-space: nowrap;">Connect Live</button>
             </div>
         </div>
 
         <div class="control-section">
-            <h3>Lighting & Atmosphere Controls</h3>
+            <h3>Lighting Controls</h3>
             <div class="lighting-grid">
-                <button class="lighting-btn active" id="l-normal" onclick="setLighting('normal')">Normal Party</button>
-                <button class="lighting-btn" id="l-upbeat" onclick="setLighting('upbeat')">Upbeat Party RGB</button>
-                <button class="lighting-btn" id="l-purple" onclick="setLighting('purple')">Neon Purple</button>
-                <button class="lighting-btn" id="l-orange" onclick="setLighting('orange')">Halloween Orange</button>
-                <button class="lighting-btn" id="l-strobe" onclick="setLighting('strobe')" style="grid-column: span 2; border-color: var(--accent-red);">Rapid Strobe FX</button>
+                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'normal'})">Normal Party</button>
+                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'upbeat'})">Upbeat Party RGB</button>
+                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'purple'})">Neon Purple</button>
+                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'orange'})">Halloween Orange</button>
+                <button class="lighting-btn" onclick="broadcastState({type: 'lighting', mode: 'strobe'})" style="grid-column: span 2; border-color: var(--accent-red);">Rapid Strobe FX</button>
             </div>
         </div>
 
         <div class="control-section">
             <h3>Live Party Announcement</h3>
-            <div class="form-group">
-                <label>Announcement Header Title</label>
-                <input type="text" id="ctrl-header" placeholder="e.g., FIREWORKS SHOW STARTING OUTSIDE!">
-            </div>
-            <div class="form-group">
-                <label>Announcement Body Text</label>
-                <textarea id="ctrl-text" rows="3" placeholder="Type message here... (Type freely, changes broadcast when button is pressed)"></textarea>
-            </div>
-            <button class="btn btn-transmit" onclick="transmitAnnouncement()">🚀 Transmit Announcement to TVs</button>
+            <label>Title</label>
+            <input type="text" id="ctrl-header" placeholder="FIREWORKS SHOW STARTING!">
+            <label style="margin-top: 10px; display:block;">Message</label>
+            <textarea id="ctrl-text" rows="3" placeholder="Please gather in the garden area..."></textarea>
+            <button class="btn btn-transmit" onclick="transmitAnnouncement()">🚀 Transmit Announcement</button>
         </div>
 
         <div class="control-section" style="border-color: rgba(239, 68, 68, 0.4);">
             <h3 style="color: var(--accent-red);">Life Safety System</h3>
-            <button class="btn btn-vad-emergency" onclick="triggerEmergencyVAD()">🚨 TRIGGER BS COMPLIANT VAD EVAC ALARM</button>
+            <button class="btn btn-vad-emergency" onclick="broadcastState({type: 'vad_alarm'})">🚨 TRIGGER BS VAD EVAC ALARM</button>
         </div>
 
-        <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="switchView('landing')">Back to Home Menu</button>
+        <button class="btn btn-secondary" style="width: 100%;" onclick="switchView('landing')">Back to Home</button>
     </div>
 
-    <!-- 3. TV KIOSK PAGE -->
+    <!-- 3. TV KIOSK SCREEN -->
     <div id="tv-screen" class="theme-normal">
-        <button class="exit-kiosk" onclick="switchView('landing')">Exit Kiosk</button>
-        <div class="tv-top-bar">
-            <div class="tv-brand">EME DANCERS • LIVE KIOSK</div>
-            <div class="tv-fireworks-indicator">🎆 FIREWORKS EVENT MODE</div>
-        </div>
-        
         <div class="tv-content-box">
-            <h1 id="tv-display-header">WELCOME TO EME DANCERS</h1>
-            <p id="tv-display-text">Get ready for an incredible party and fireworks display!</p>
+            <h1 id="tv-display-header">EME DANCERS</h1>
+            <p id="tv-display-text">Welcome to the Party!</p>
         </div>
-
-        <div class="tv-footer-bar">
-            <span id="tv-net-status">NETWORK STATUS: CONNECTING</span>
-            <span id="tv-clock">00:00:00</span>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: #10b981;">
+            TV ROOM ID: <span id="tv-room-id" style="font-weight: 800; color: white;">GENERATING...</span>
         </div>
     </div>
 
-    <!-- 4. EMERGENCY VAD OVERLAY -->
+    <!-- 4. VAD OVERLAY -->
     <div id="vad-overlay">
-        <h1>🚨 EMERGENCY EVACUATION 🚨</h1>
-        <p>EVACUATE THE BUILDING IMMEDIATELY VIA NEAREST EXIT</p>
+        <h1 style="font-size: 7vw;">🚨 EMERGENCY EVACUATION 🚨</h1>
+        <p style="font-size: 3vw;">EVACUATE THE BUILDING IMMEDIATELY</p>
     </div>
 
     <script>
-        // Global Public MQTT WebSocket Relay Configuration (Unique channel for EME Dancers)
-        const MQTT_TOPIC = "emedancers/party/control/v1";
-        const client = mqtt.connect("wss://broker.hivemq.com:8000/mqtt");
-
-        client.on('connect', () => {
-            console.log("Connected to Real-time Network!");
-            document.getElementById('net-status').innerHTML = '<div class="status-dot"></div> SYNC ONLINE';
-            document.getElementById('tv-net-status').innerText = 'NETWORK STATUS: LIVE SYNC ONLINE';
-            client.subscribe(MQTT_TOPIC);
-        });
-
-        client.on('message', (topic, message) => {
-            try {
-                const payload = JSON.parse(message.toString());
-                handleIncomingData(payload);
-            } catch(e) {}
-        });
+        let peer = null;
+        let activeConnection = null;
 
         function switchView(viewName) {
             document.getElementById('landing-view').style.display = 'none';
             document.getElementById('control-view').style.display = 'none';
             document.getElementById('tv-screen').style.display = 'none';
 
-            if (viewName === 'landing') {
-                document.getElementById('landing-view').style.display = 'flex';
-            } else if (viewName === 'control') {
+            if (viewName === 'landing') document.getElementById('landing-view').style.display = 'flex';
+            if (viewName === 'control') {
                 document.getElementById('control-view').style.display = 'block';
-            } else if (viewName === 'tv') {
+                initPeerController();
+            }
+            if (viewName === 'tv') {
                 document.getElementById('tv-screen').style.display = 'flex';
-                try { document.documentElement.requestFullscreen?.(); } catch(e){}
+                initPeerTV();
             }
         }
 
-        // Lighting Controls
-        function setLighting(mode) {
-            document.querySelectorAll('.lighting-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('l-' + mode).classList.add('active');
+        // --- TV MODE (Receiver) ---
+        function initPeerTV() {
+            const randomID = 'eme-room-' + Math.floor(1000 + Math.random() * 9000);
+            peer = new Peer(randomID);
+
+            peer.on('open', (id) => {
+                document.getElementById('tv-room-id').innerText = id;
+            });
+
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    handleIncomingData(data);
+                });
+            });
+        }
+
+        // --- IPAD CONTROL MODE (Sender) ---
+        function initPeerController() {
+            if(!peer) peer = new Peer();
+        }
+
+        function connectToTV() {
+            const targetID = document.getElementById('target-room-id').value.trim();
+            if(!targetID) return alert('Please enter TV Room ID!');
+
+            activeConnection = peer.connect(targetID);
             
-            const payload = { type: 'lighting', mode: mode };
-            client.publish(MQTT_TOPIC, JSON.stringify(payload));
+            activeConnection.on('open', () => {
+                const statusBadge = document.getElementById('net-status');
+                statusBadge.innerText = "LIVE LINK CONNECTED";
+                statusBadge.classList.add('connected');
+            });
         }
 
-        // Transmit Text Controls (Only sends on click)
+        function broadcastState(dataObject) {
+            if(activeConnection && activeConnection.open) {
+                activeConnection.send(dataObject);
+            } else {
+                alert("Please connect to a TV Room ID first!");
+            }
+        }
+
         function transmitAnnouncement() {
-            const header = document.getElementById('ctrl-header').value;
-            const text = document.getElementById('ctrl-text').value;
-
-            const payload = { type: 'announcement', header: header, text: text };
-            client.publish(MQTT_TOPIC, JSON.stringify(payload));
-            alert('Announcement Sent to TVs!');
+            const h = document.getElementById('ctrl-header').value;
+            const t = document.getElementById('ctrl-text').value;
+            broadcastState({ type: 'announcement', header: h, text: t });
         }
 
-        // Emergency VAD Trigger
-        function triggerEmergencyVAD() {
-            const payload = { type: 'vad_alarm' };
-            client.publish(MQTT_TOPIC, JSON.stringify(payload));
+        function handleIncomingData(data) {
+            if (data.type === 'lighting') {
+                document.getElementById('tv-screen').className = 'theme-' + data.mode;
+            } 
+            else if (data.type === 'announcement') {
+                if (data.header) document.getElementById('tv-display-header').innerText = data.header;
+                if (data.text) document.getElementById('tv-display-text').innerText = data.text;
+            } 
+            else if (data.type === 'vad_alarm') {
+                executeVADAlarmSequence();
+            }
         }
 
-        // Audio Visual VAD Alarm Handler
         function executeVADAlarmSequence() {
             const overlay = document.getElementById('vad-overlay');
             overlay.style.display = 'flex';
 
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if(audioCtx.state === 'suspended') { audioCtx.resume(); }
-
                 let startTime = audioCtx.currentTime;
-                // Play 10-second British Standard compliant sweep tone (800Hz to 970Hz)
-                for (let cycle = 0; cycle < 20; cycle++) {
+                for (let cycle = 0; cycle < 15; cycle++) {
                     let osc = audioCtx.createOscillator();
                     let gain = audioCtx.createGain();
                     osc.type = 'sawtooth';
-                    
                     let cycleStart = startTime + (cycle * 0.5);
                     osc.frequency.setValueAtTime(800, cycleStart);
                     osc.frequency.linearRampToValueAtTime(970, cycleStart + 0.4);
-
                     gain.gain.setValueAtTime(0.4, cycleStart);
                     gain.gain.linearRampToValueAtTime(0.01, cycleStart + 0.48);
-
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
-
                     osc.start(cycleStart);
                     osc.stop(cycleStart + 0.5);
                 }
-            } catch(e) {
-                console.log("Audio requires initial touch on screen");
-            }
+            } catch(e) {}
 
-            // Hide after 10 seconds
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 10000);
+            setTimeout(() => { overlay.style.display = 'none'; }, 8000);
         }
-
-        // Process incoming messages across networks
-        function handleIncomingData(data) {
-            if (data.type === 'lighting') {
-                const tv = document.getElementById('tv-screen');
-                tv.className = 'theme-' + data.mode;
-            }
-            else if (data.type === 'announcement') {
-                if(data.header) document.getElementById('tv-display-header').innerText = data.header;
-                if(data.text) document.getElementById('tv-display-text').innerText = data.text;
-            }
-            else if (data.type === 'vad_alarm') {
-                executeVADAlarmSequence();
-            }
-        }
-
-        // Live Clock
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('tv-clock').innerText = now.toLocaleTimeString();
-        }, 1000);
     </script>
 </body>
 </html>
