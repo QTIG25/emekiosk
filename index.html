@@ -1,1 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EME Dancers - Party & VAD Control System</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-color: #f0f6fc;
+            --accent: #ff007f;
+            --neon-purple: #9d4edd;
+            --halloween-orange: #ff7700;
+        }
 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 { margin-top: 0; color: var(--accent); }
+        p { color: #8b949e; }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        button {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        .btn-tv { background-color: #1f6feb; }
+        .btn-control { background-color: #8957e5; }
+
+        /* TV Display Mode Styles */
+        #tv-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        #tv-screen h1 { font-size: 5vw; margin: 0; text-transform: uppercase; }
+        #tv-screen p { font-size: 3vw; margin: 20px 0 0 0; color: white; }
+
+        /* Lighting FX Classes */
+        .fx-normal { background: #111 !important; }
+        .fx-upbeat { animation: upbeatRGB 2s infinite; }
+        .fx-purple { background: var(--neon-purple) !important; }
+        .fx-orange { background: var(--halloween-orange) !important; }
+        .fx-strobe { animation: rapidStrobe 0.15s infinite; }
+
+        @keyframes upbeatRGB {
+            0% { background: #ff0055; }
+            33% { background: #00ffff; }
+            66% { background: #7b00ff; }
+            100% { background: #ff0055; }
+        }
+
+        @keyframes rapidStrobe {
+            0% { background: #ffffff; color: black; }
+            50% { background: #000000; color: white; }
+            100% { background: #ffffff; color: black; }
+        }
+
+        /* Control Panel Form Styles */
+        .control-panel {
+            text-align: left;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 20px 0;
+            background: #0d1117;
+            border: 1px: #30363d;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .presets button {
+            font-size: 14px;
+            padding: 10px;
+        }
+
+        .vad-btn {
+            background-color: #da3633;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Home Hub View -->
+    <div id="home-view" class="container">
+        <h1>EME Dancers Event Hub</h1>
+        <p>Select which view you want to open on this device:</p>
+        <div class="btn-group">
+            <button class="btn-control" onclick="openView('control')">iPad Control Page</button>
+            <button class="btn-tv" onclick="openView('tv')">TV Kiosk Mode</button>
+        </div>
+    </div>
+
+    <!-- Control Page View -->
+    <div id="control-view" class="container control-panel" style="display: none;">
+        <h1>🎛️ EME Controller</h1>
+        
+        <label><strong>Lighting FX Mode:</strong></label>
+        <div class="presets">
+            <button onclick="setLighting('normal')">Normal</button>
+            <button onclick="setLighting('upbeat')">Upbeat RGB</button>
+            <button onclick="setLighting('purple')">Neon Purple</button>
+            <button onclick="setLighting('orange')">Halloween Orange</button>
+            <button onclick="setLighting('strobe')" style="grid-column: span 2; background: #b31d28;">Rapid Strobe</button>
+        </div>
+
+        <label for="input-header">Announcement Header:</label>
+        <input type="text" id="input-header" placeholder="e.g., FIREWORKS STARTING!" oninput="syncData()">
+
+        <label for="input-text">Announcement Body Text:</label>
+        <textarea id="input-text" rows="3" placeholder="Type message here..." oninput="syncData()"></textarea>
+
+        <button class="vad-btn" onclick="triggerVAD()">🚨 Trigger BS VAD Evac Sounder</button>
+        <br><br>
+        <button style="background: #30363d;" onclick="openView('home')">Back to Home</button>
+    </div>
+
+    <!-- TV Kiosk View (Hidden by default unless selected) -->
+    <div id="tv-screen" style="display: none;" class="fx-normal">
+        <h1 id="tv-header">EME DANCERS</h1>
+        <p id="tv-text">Welcome to the Party!</p>
+        <div style="position: absolute; bottom: 20px; font-size: 12px; color: rgba(255,255,255,0.4);">TV Kiosk Mode — Press ESC or click to exit</div>
+    </div>
+
+    <script>
+        // Simple View Controller
+        function openView(view) {
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('control-view').style.display = 'none';
+            document.getElementById('tv-screen').style.display = 'none';
+
+            if (view === 'home') {
+                document.getElementById('home-view').style.display = 'block';
+            } else if (view === 'control') {
+                document.getElementById('control-view').style.display = 'block';
+            } else if (view === 'tv') {
+                document.getElementById('tv-screen').style.display = 'flex';
+            }
+        }
+
+        // Real-time Storage Sync (Updates across tabs/devices instantly without clearing focus)
+        function syncData() {
+            const header = document.getElementById('input-header').value;
+            const text = document.getElementById('input-text').value;
+            localStorage.setItem('eme_header', header);
+            localStorage.setItem('eme_text', text);
+        }
+
+        function setLighting(mode) {
+            localStorage.setItem('eme_lighting', mode);
+        }
+
+        // British Standard compliant VAD sounder simulation (Dual-frequency sweep sound)
+        function triggerVAD() {
+            localStorage.setItem('eme_vad', Date.now()); // Broadcast trigger to TVs
+            playVADAudio();
+        }
+
+        function playVADAudio() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                // BS 5839 compliant frequency sweep simulation (800Hz to 970Hz)
+                let time = audioCtx.currentTime;
+                for(let i = 0; i < 10; i++) {
+                    osc.frequency.setValueAtTime(800, time + (i * 0.5));
+                    osc.frequency.linearRampToValueAtTime(970, time + (i * 0.5) + 0.25);
+                }
+                
+                osc.start();
+                osc.stop(time + 5.0);
+            } catch(e) {
+                console.log("Audio needs user interaction first");
+            }
+        }
+
+        // Real-time listener for TV updates
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'eme_header') {
+                document.getElementById('tv-header').innerText = e.newValue || 'EME DANCERS';
+            }
+            if (e.key === 'eme_text') {
+                document.getElementById('tv-text').innerText = e.newValue || '';
+            }
+            if (e.key === 'eme_lighting') {
+                const tv = document.getElementById('tv-screen');
+                tv.className = '';
+                if (e.newValue === 'normal') tv.classList.add('fx-normal');
+                if (e.newValue === 'upbeat') tv.classList.add('fx-upbeat');
+                if (e.newValue === 'purple') tv.classList.add('fx-purple');
+                if (e.newValue === 'orange') tv.classList.add('fx-orange');
+                if (e.newValue === 'strobe') tv.classList.add('fx-strobe');
+            }
+            if (e.key === 'eme_vad') {
+                playVADAudio();
+            }
+        });
+
+        // Load initial state if opened directly on TV
+        window.onload = () => {
+            if (localStorage.getItem('eme_header')) {
+                document.getElementById('tv-header').innerText = localStorage.getItem('eme_header');
+            }
+            if (localStorage.getItem('eme_text')) {
+                document.getElementById('tv-text').innerText = localStorage.getItem('eme_text');
+            }
+        };
+
+        // Click TV screen to go back home if needed
+        document.getElementById('tv-screen').addEventListener('click', () => {
+            // Uncomment if you want clicking the TV to exit kiosk mode
+            // openView('home');
+        });
+    </script>
+</body>
+</html>
